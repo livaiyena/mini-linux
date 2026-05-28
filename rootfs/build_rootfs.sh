@@ -41,7 +41,7 @@ INITTAB_EOF
 
     cat > "${ROOTFS_DIR}/etc/init.d/rcS" << 'RCS_EOF'
 #!/bin/sh
-mount -t devtmpfs devtmpfs /dev
+mountpoint -q /dev || mount -t devtmpfs devtmpfs /dev
 mount -t proc proc /proc
 mount -t sysfs sysfs /sys
 mount -t tmpfs tmpfs /tmp

@@ -16,3 +16,7 @@ filesync-aarch64
 rootfs/rootfs_staging/
 rootfs/rootfs.cpio.gz
 rootfs/*.tar.bz2
+qemu/Image
+qemu/rootfs.ext4
+qemu/linux-*/
+qemu/*.tar.xz
