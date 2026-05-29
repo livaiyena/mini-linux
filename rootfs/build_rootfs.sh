@@ -17,7 +17,7 @@ fail()  { printf "\033[1;31m[FAIL]\033[0m  %s\n" "$1"; exit 1; }
 create_fhs_directories() {
     info "Creating FHS directory structure..."
     rm -rf "${ROOTFS_DIR}"
-    mkdir -p "${ROOTFS_DIR}"/{bin,sbin,usr/bin,usr/sbin,lib,lib64,proc,sys,dev,tmp,run,etc/init.d,var/log,var/run,root,home,mnt,opt}
+    mkdir -p "${ROOTFS_DIR}"/{bin,sbin,usr/bin,usr/sbin,lib,lib64,proc,sys,dev,dev/shm,tmp,run,etc/init.d,var/log,var/run,root,home,mnt,opt}
     ok "FHS directory structure created"
 }
 
@@ -46,6 +46,7 @@ mount -t proc proc /proc
 mount -t sysfs sysfs /sys
 mount -t tmpfs tmpfs /tmp
 mount -t tmpfs tmpfs /run
+mount -t tmpfs tmpfs /dev/shm
 
 hostname aarch64-embedded
 echo "aarch64-embedded" > /etc/hostname
@@ -77,6 +78,7 @@ proc         /proc    proc       defaults           0      0
 sysfs        /sys     sysfs      defaults           0      0
 tmpfs        /tmp     tmpfs      defaults,size=64m  0      0
 tmpfs        /run     tmpfs      defaults,size=16m  0      0
+tmpfs        /dev/shm tmpfs      defaults,size=16m  0      0
 EOF
 
     cat > "${ROOTFS_DIR}/etc/profile" << 'EOF'
@@ -107,10 +109,26 @@ build_busybox_docker() {
 }
 
 install_filesync() {
-    FILESYNC_BIN="${SCRIPT_DIR}/../source_code/filesync-aarch64"
+    FILESYNC_BIN="${SCRIPT_DIR}/../source_code/filesync/filesync-aarch64"
     if [ -f "${FILESYNC_BIN}" ]; then
         cp "${FILESYNC_BIN}" "${ROOTFS_DIR}/usr/bin/filesync"
         chmod +x "${ROOTFS_DIR}/usr/bin/filesync"
+        ok "filesync installed at /usr/bin/filesync"
+    fi
+}
+
+install_ipc() {
+    IPC_DIR="${SCRIPT_DIR}/../source_code/ipc"
+    SENSOR_BIN="${IPC_DIR}/sensor_reader-aarch64"
+    LOGGER_BIN="${IPC_DIR}/logger_app-aarch64"
+    if [ -f "${SENSOR_BIN}" ] && [ -f "${LOGGER_BIN}" ]; then
+        cp "${SENSOR_BIN}" "${ROOTFS_DIR}/usr/bin/sensor_reader"
+        cp "${LOGGER_BIN}" "${ROOTFS_DIR}/usr/bin/logger_app"
+        chmod +x "${ROOTFS_DIR}/usr/bin/sensor_reader"
+        chmod +x "${ROOTFS_DIR}/usr/bin/logger_app"
+        ok "IPC binaries installed at /usr/bin/"
+    else
+        warn "IPC binaries not found — run 'make docker' in source_code/ipc/ first"
     fi
 }
 
@@ -128,6 +146,7 @@ main() {
     build_busybox_docker
     create_device_nodes
     install_filesync
+    install_ipc
     create_initramfs
 }
 
