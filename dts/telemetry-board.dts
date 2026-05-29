@@ -1,0 +1,56 @@
+/*
+ * Board-level Device Tree Source — ARMv8-A Telemetry Board
+ *
+ * This is the top-level DTS that a real board would use.
+ * It defines the I2C1 bus controller and includes the sensor
+ * fragment from i2c-sensors.dtsi.
+ *
+ * Compilation:
+ *   dtc -I dts -O dtb -o telemetry-board.dtb telemetry-board.dts
+ *
+ * Decompilation (inspect):
+ *   dtc -I dtb -O dts telemetry-board.dtb
+ */
+
+/dts-v1/;
+
+/ {
+    model = "ARMv8-A Telemetry Development Board";
+    compatible = "custom,telemetry-board", "arm,vexpress";
+
+    #address-cells = <2>;
+    #size-cells = <2>;
+
+    chosen {
+        bootargs = "root=/dev/vda rw console=ttyAMA0 earlycon=pl011,0x09000000";
+        stdout-path = "serial0:115200n8";
+    };
+
+    memory@40000000 {
+        device_type = "memory";
+        reg = <0x00 0x40000000 0x00 0x10000000>;  /* 256 MB @ 0x4000_0000 */
+    };
+
+    /*
+     * I2C Bus 1 Controller
+     *
+     * Base address and interrupt are board-specific.
+     * For a real Cortex-A72 SoC (e.g. BCM2711, RK3399) these would
+     * come from the SoC reference manual.
+     */
+    i2c1: i2c@09020000 {
+        compatible = "arm,versatile-i2c";
+        reg = <0x00 0x09020000 0x00 0x1000>;
+        #address-cells = <1>;
+        #size-cells = <0>;
+        clock-frequency = <400000>;
+        status = "okay";
+
+        /*
+         * Sensor nodes are defined in the include fragment.
+         * On real projects, separating sensor definitions from
+         * the board DTS keeps the tree modular.
+         */
+        #include "i2c-sensors.dtsi"
+    };
+};
