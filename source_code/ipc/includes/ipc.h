@@ -12,6 +12,7 @@
 # include <sys/mman.h>
 # include <sys/stat.h>
 # include <semaphore.h>
+# include <stdint.h>
 
 # define SHM_NAME       "/telemetry_shm"
 # define SEM_WRITER     "/telemetry_sem_w"
