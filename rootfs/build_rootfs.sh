@@ -46,10 +46,23 @@ mount -t proc proc /proc
 mount -t sysfs sysfs /sys
 mount -t tmpfs tmpfs /tmp
 mount -t tmpfs tmpfs /run
+mkdir -p /dev/shm
 mount -t tmpfs tmpfs /dev/shm
 
 hostname aarch64-embedded
 echo "aarch64-embedded" > /etc/hostname
+
+echo "    TELEMETRY SYSTEM AUTO-START       "
+echo "[*] Loading telemetry_sensor.ko..."
+insmod /lib/modules/telemetry_sensor.ko
+
+echo "[*] Starting logger_app in background..."
+logger_app &
+sleep 1
+
+echo "[*] Starting sensor_reader in background..."
+sensor_reader &
+
 RCS_EOF
     chmod +x "${ROOTFS_DIR}/etc/init.d/rcS"
 
@@ -118,9 +131,10 @@ install_filesync() {
 }
 
 install_ipc() {
-    IPC_DIR="${SCRIPT_DIR}/../source_code/ipc"
-    SENSOR_BIN="${IPC_DIR}/sensor_reader-aarch64"
-    LOGGER_BIN="${IPC_DIR}/logger_app-aarch64"
+    BUILD_DIR="${SCRIPT_DIR}/../build"
+    SENSOR_BIN="${BUILD_DIR}/sensor_reader"
+    LOGGER_BIN="${BUILD_DIR}/logger_app"
+    DRIVER_BIN="${SCRIPT_DIR}/../source_code/driver/telemetry_sensor.ko"
     if [ -f "${SENSOR_BIN}" ] && [ -f "${LOGGER_BIN}" ]; then
         cp "${SENSOR_BIN}" "${ROOTFS_DIR}/usr/bin/sensor_reader"
         cp "${LOGGER_BIN}" "${ROOTFS_DIR}/usr/bin/logger_app"
@@ -128,7 +142,12 @@ install_ipc() {
         chmod +x "${ROOTFS_DIR}/usr/bin/logger_app"
         ok "IPC binaries installed at /usr/bin/"
     else
-        warn "IPC binaries not found — run 'make docker' in source_code/ipc/ first"
+        warn "IPC binaries not found — run 'make all' at project root first"
+    fi
+    if [ -f "${DRIVER_BIN}" ]; then
+        mkdir -p "${ROOTFS_DIR}/lib/modules"
+        cp "${DRIVER_BIN}" "${ROOTFS_DIR}/lib/modules/"
+        ok "telemetry_sensor.ko driver installed at /lib/modules/"
     fi
 }
 
