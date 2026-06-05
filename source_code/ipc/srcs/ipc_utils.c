@@ -10,10 +10,10 @@ uint64_t	get_timestamp_ns(void)
 
 void	print_telemetry(const t_telemetry *t)
 {
-	printf("[SEQ:%06lu] T:%d°C P:%dhPa H:%d%% "
+	printf("[SEQ:%06lu] T:%.2f°C P:%.1fhPa H:%.2f%% "
 		"A(%d,%d,%d) @%lu ns\n",
 		(unsigned long)t->seq,
-		t->temperature, t->pressure, t->humidity,
+		t->temperature / 100.0, t->pressure / 100.0, t->humidity / 100.0,
 		t->accel_x, t->accel_y, t->accel_z,
 		(unsigned long)t->timestamp_ns);
 }
@@ -21,9 +21,9 @@ void	print_telemetry(const t_telemetry *t)
 void	format_log_line(char *buf, size_t len, const t_telemetry *t)
 {
 	snprintf(buf, len,
-		"%lu,%d,%d,%d,%d,%d,%d,%lu\n",
+		"%lu,%.2f,%.1f,%.2f,%d,%d,%d,%lu\n",
 		(unsigned long)t->seq,
-		t->temperature, t->pressure, t->humidity,
+		t->temperature / 100.0, t->pressure / 100.0, t->humidity / 100.0,
 		t->accel_x, t->accel_y, t->accel_z,
 		(unsigned long)t->timestamp_ns);
 }

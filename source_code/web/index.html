@@ -238,17 +238,12 @@ function fetchData() {
       if (f.length < 7) return;
 
       const seq  = f[0];
-      const rawTemp = parseInt(f[1]);
-      const rawPres = parseInt(f[2]);
-      const rawHum  = parseInt(f[3]);
+      const temp = parseFloat(f[1]).toFixed(2);
+      const pres = parseFloat(f[2]).toFixed(1);
+      const hum  = parseFloat(f[3]).toFixed(2);
       const ax   = parseInt(f[4]);
       const ay   = parseInt(f[5]);
       const az   = parseInt(f[6]);
-
-      // Embedded systems use integers (x100) to avoid slow float math. We convert them back for UI.
-      const temp = (rawTemp / 100).toFixed(2);
-      const pres = (rawPres / 100).toFixed(1);
-      const hum  = (rawHum / 100).toFixed(2);
 
       document.getElementById('v-temp').textContent = temp;
       document.getElementById('v-pres').textContent = pres;
@@ -269,9 +264,9 @@ function fetchData() {
         const div = document.createElement('div');
         div.className = 'entry';
         const parts = line.split(',');
-        const pTemp = (parseInt(parts[1]) / 100).toFixed(2);
-        const pPres = (parseInt(parts[2]) / 100).toFixed(1);
-        const pHum  = (parseInt(parts[3]) / 100).toFixed(2);
+        const pTemp = parseFloat(parts[1]).toFixed(2);
+        const pPres = parseFloat(parts[2]).toFixed(1);
+        const pHum  = parseFloat(parts[3]).toFixed(2);
         div.innerHTML = '<span class="ts">[SEQ:' + parts[0].padStart(6,'0') + ']</span> '
           + 'T:' + pTemp + ' P:' + pPres + ' H:' + pHum
           + ' A(' + parts[4] + ',' + parts[5] + ',' + parts[6] + ')';
