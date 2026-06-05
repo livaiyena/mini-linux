@@ -69,4 +69,56 @@ Güvenlik (API Key) ve Mimari:
    Highlight any potential anomalies. Keep it under 3-4 sentences."
   komutuyla Bearer Authorization kullanarak gönderir. Modelden dönen analiz,
   dinamik olarak ekrandaki yeşil panele basılır.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+BÖLÜM 4: QEMU AArch64 BOOT VE EXT4 ROOTFS MİMARİSİ
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Oluşturulan minimal sistem initramfs yerine gerçek donanım I/O davranışını
+simüle etmek için 50MB ext4 raw disk imajı üzerinden boot edilir.
+
+QEMU Başlatma Parametreleri:
+  -machine virt -cpu cortex-a72 -m 256M -nographic
+  -kernel Image
+  -drive file=rootfs.ext4,format=raw,if=virtio
+  -append "root=/dev/vda rw console=ttyAMA0 earlycon=pl011,0x09000000 panic=5"
+
+VirtIO Blok Cihazı:
+Geleneksel emülasyondaki (IDE/SATA) performans kaybını engellemek için VirtIO
+paravirtualization kullanılır. Guest kernel (Linux) istekleri paylaşımlı bir
+ring buffer'a (virtqueue) yazar ve QEMU bu istekleri doğrudan host dosya 
+sistemine pread/pwrite ile iletir. Kernel'da cihaz /dev/vda olarak görünür.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+BÖLÜM 5: ARMv8-A MİNİMAL BUSYBOX ROOTFS YAPISI
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+QEMU üzerinde AArch64 için tamamen kendi kendine yeten (statically linked) 
+bir BusyBox RootFS kurulmuştur.
+
+FHS (Filesystem Hierarchy Standard) ve Init:
+  - /bin, /sbin, /etc, /dev, /proc, /sys yapıları betik ile oluşturulur.
+  - /etc/inittab: Sysinit ve ttyAMA0 (UART konsol) respawn tanımlarını içerir.
+  - /etc/init.d/rcS: devtmpfs, proc, sysfs, tmpfs gibi sanal dosya 
+    sistemlerini mount eder ve telemetri sürecini (IPC + Web) başlatır.
+  
+BusyBox'ın Statik Derlenmesi (CONFIG_STATIC=y):
+Dinamik libc/musl bağımlılıklarını ortadan kaldırarak rootfs boyutunu 
+küçültür ve kernel panic hatalarının önüne geçer.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+BÖLÜM 6: DEVICE TREE (DTS) VE KERNEL DRIVER BINDING
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+x86 sistemlerdeki PCI taramasının aksine, ARM mimarisinde donanımın yeri
+kernel'a Device Tree Blob (DTB) ile bildirilir.
+
+DTS Hiyerarşisi ve Eşleşme (Binding):
+  - Sensörler (ör. BMP280, MPU6050) I2C controller node'unun altında 
+    tanımlanır (reg = <0x76>).
+  - "compatible" stringi ("bosch,bmp280") en kritik özelliktir.
+  - Kernel boot aşamasında DTB'yi parse edip of_device_id tablolarını 
+    tarayarak doğru kernel driver'ını (drivers/iio/pressure/bmp280-i2c.c) bulur.
+  - Eşleşme sağlanırsa driver->probe() fonksiyonu çağrılır ve /sys/bus/iio
+    altında donanım kullanıcı alanına (userspace) açılır.
+
+Not: QEMU "virt" machine gerçek bir I2C controller sunmadığı için fiziksel
+sensör entegrasyonu gerçek donanımda (ör. Raspberry Pi) doğrulanır.
 ================================================================================
