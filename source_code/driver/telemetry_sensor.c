@@ -5,6 +5,7 @@
 #include <linux/cdev.h>
 #include <linux/device.h>
 #include <linux/uaccess.h>
+#include <linux/version.h>
 
 #define DEVICE_NAME "telemetry_sensor"
 #define CLASS_NAME  "telemetry_class"
@@ -43,7 +44,12 @@ static struct file_operations telemetry_fops = {
     .read = telemetry_read,
 };
 
-static int telemetry_probe(struct i2c_client *client) {
+static int telemetry_probe(struct i2c_client *client
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5,16,0)
+    , const struct i2c_device_id *id
+#endif
+)
+{
     pr_info("Telemetry Sensor: Probing I2C device (Address: 0x%x)\n", client->addr);
 
     major_number = register_chrdev(0, DEVICE_NAME, &telemetry_fops);
@@ -52,7 +58,11 @@ static int telemetry_probe(struct i2c_client *client) {
         return major_number;
     }
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6,4,0)
     telemetry_class = class_create(CLASS_NAME);
+#else
+    telemetry_class = class_create(THIS_MODULE, CLASS_NAME);
+#endif
     if (IS_ERR(telemetry_class)) {
         unregister_chrdev(major_number, DEVICE_NAME);
         pr_alert("Telemetry Sensor: Failed to register device class\n");
@@ -71,7 +81,11 @@ static int telemetry_probe(struct i2c_client *client) {
     return 0;
 }
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6,1,0)
 static void telemetry_remove(struct i2c_client *client) {
+#else
+static int telemetry_remove(struct i2c_client *client) {
+#endif
     pr_info("Telemetry Sensor: Removing I2C device\n");
 
     device_destroy(telemetry_class, MKDEV(major_number, 0));
@@ -80,6 +94,9 @@ static void telemetry_remove(struct i2c_client *client) {
     unregister_chrdev(major_number, DEVICE_NAME);
     
     pr_info("Telemetry Sensor: Module cleanly removed.\n");
+#if LINUX_VERSION_CODE < KERNEL_VERSION(6,1,0)
+    return 0;
+#endif
 }
 
 static const struct of_device_id telemetry_of_match[] = {
@@ -93,7 +110,13 @@ static struct i2c_driver telemetry_driver = {
         .name = DEVICE_NAME,
         .of_match_table = telemetry_of_match,
     },
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6,3,0)
     .probe = telemetry_probe,
+#elif LINUX_VERSION_CODE >= KERNEL_VERSION(5,16,0)
+    .probe_new = telemetry_probe,
+#else
+    .probe = telemetry_probe,
+#endif
     .remove = telemetry_remove,
 };
 
