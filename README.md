@@ -72,4 +72,23 @@ When QEMU boots, the custom `rcS` script will automatically:
 3. Start the `sensor_reader` in the background.
 You will immediately see telemetry data successfully streaming and being logged via IPC.
 
+### Verifying the System
+Once you see the `root@aarch64-embedded:/#` prompt, type:
+```bash
+verify
+```
+This built-in command checks all subsystems and prints a PASS/FAIL report:
+- **Running Processes** — Are `sensor_reader` and `logger_app` alive?
+- **Telemetry Log** — Is `/tmp/telemetry.log` being written with CSV sensor data?
+- **Shared Memory** — Is the POSIX shared memory segment (`/dev/shm/telemetry_shm`) active?
+- **Kernel Module** — Is `telemetry_sensor.ko` present?
+- **Kernel Messages** — Latest `dmesg` output.
+
+You can also manually inspect:
+```bash
+cat /tmp/telemetry.log     # View logged sensor data (CSV format)
+ps                         # See running processes
+dmesg | tail               # Check kernel messages
+```
+
 To exit QEMU at any time: Press `Ctrl + A`, release, then press `X`.

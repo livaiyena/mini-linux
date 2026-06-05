@@ -151,6 +151,57 @@ install_ipc() {
     fi
 }
 
+install_verify() {
+    cat > "${ROOTFS_DIR}/usr/bin/verify" << 'VERIFY_EOF'
+#!/bin/sh
+echo ""
+echo "=== SYSTEM VERIFICATION ==="
+echo ""
+
+echo "[1] Running Processes:"
+ps | grep -E "sensor_reader|logger_app" | grep -v grep
+if [ $? -eq 0 ]; then
+    echo "    -> PASS: IPC processes are running"
+else
+    echo "    -> FAIL: IPC processes not found"
+fi
+echo ""
+
+echo "[2] Telemetry Log File (/tmp/telemetry.log):"
+if [ -f /tmp/telemetry.log ]; then
+    LINES=$(wc -l < /tmp/telemetry.log)
+    echo "    -> PASS: Log file exists ($LINES lines written)"
+    echo "    -> Last 3 entries:"
+    tail -3 /tmp/telemetry.log | sed 's/^/       /'
+else
+    echo "    -> FAIL: Log file not found"
+fi
+echo ""
+
+echo "[3] Shared Memory (IPC):"
+if [ -f /dev/shm/telemetry_shm ]; then
+    echo "    -> PASS: Shared memory segment active"
+else
+    echo "    -> FAIL: Shared memory not found"
+fi
+echo ""
+
+echo "[4] Kernel Module:"
+if [ -f /lib/modules/telemetry_sensor.ko ]; then
+    echo "    -> INFO: telemetry_sensor.ko present in /lib/modules/"
+fi
+echo ""
+
+echo "[5] Kernel Messages (last 5):"
+dmesg | tail -5 | sed 's/^/    /'
+echo ""
+echo "=== VERIFICATION COMPLETE ==="
+echo ""
+VERIFY_EOF
+    chmod +x "${ROOTFS_DIR}/usr/bin/verify"
+    ok "verify script installed at /usr/bin/verify"
+}
+
 create_initramfs() {
     info "Creating initramfs image..."
     cd "${ROOTFS_DIR}"
@@ -166,6 +217,7 @@ main() {
     create_device_nodes
     install_filesync
     install_ipc
+    install_verify
     create_initramfs
 }
 
