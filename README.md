@@ -14,7 +14,7 @@ Everything is containerized via Docker to ensure it compiles reliably on any hos
 
 ---
 
-## 🚀 Quick Start Guide (For Evaluators/Teachers)
+## Quick Start Guide
 
 **No native ARM toolchains are required; Docker handles everything.**
 
@@ -95,7 +95,7 @@ To exit QEMU at any time: Press `Ctrl + A`, release, then press `X`.
 
 ---
 
-## ⭐ Bonus Features
+## Bonus Features
 
 ### Web-Based Telemetry Dashboard
 Once QEMU boots, open your host browser and navigate to:
