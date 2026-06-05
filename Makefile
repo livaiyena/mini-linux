@@ -65,4 +65,9 @@ clean:
 	-make -C $(KERNEL_DIR) M=$(CURDIR)/$(DRIVER_DIR) clean
 	rm -f $(DRIVER_DIR)/Makefile
 
-.PHONY: all ipc driver rootfs qemu docker-build docker-run clean
+distclean: clean
+	rm -rf qemu/linux-* qemu/*.tar.* qemu/Image qemu/rootfs.ext4
+	rm -rf rootfs/rootfs_staging rootfs/*.cpio.gz rootfs/*.tar.bz2
+	@echo "All heavy build artifacts removed! Project is ready for ZIP."
+
+.PHONY: all ipc driver rootfs qemu docker-build docker-run clean distclean
