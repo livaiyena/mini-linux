@@ -32,8 +32,7 @@ create_init_configs() {
 
     cat > "${ROOTFS_DIR}/etc/inittab" << 'INITTAB_EOF'
 ::sysinit:/etc/init.d/rcS
-::respawn:-/bin/sh
-ttyAMA0::respawn:-/bin/sh
+::askfirst:-/bin/sh
 ::shutdown:/bin/umount -a -r
 ::shutdown:/sbin/swapoff -a
 ::ctrlaltdel:/sbin/reboot
