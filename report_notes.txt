@@ -165,4 +165,125 @@ Kritik Özellikler:
     (.sync_tmp) yazılır, fdatasync() ile kalıcı hale getirilir, rename() ile 
     hedefe taşınır ve dizin sync_directory() ile güncellenir. Yarım yazılmış 
     (corrupt) dosya ihtimali sıfıra indirgenir.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+BÖLÜM 10: PROJE TESLİMİ İÇİN ÖRNEK KODLAR VE DİZİN YAPISI
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Aşağıdaki içerikler, teknik raporunuza doğrudan ekleyebileceğiniz ve 
+yapay zeka destekli geliştirme aşamalarınızı ispatlayan temel referanslardır.
+
+1. PROJE TESLİM DİZİN YAPISI (Aşama Özetleri)
+---------------------------------------------------------
+ogrenci_no_adsoyad/
+├── report.pdf          (Bu dosyadan oluşturacağınız nihai rapor)
+├── prompts.txt         (Kullanılan yapay zeka komutları)
+├── screenshots/        (QEMU Boot, Çalışan sistem ekran görüntüleri)
+├── source_code/        (C Kodları: driver, filesync, ipc, web)
+├── rootfs/             (build_rootfs.sh ve RootFS yapısı)
+├── dts/                (I2C Sensör Device Tree dtsi dosyaları)
+├── qemu/               (build_qemu_env.sh boot scriptleri)
+└── README.md           (Projenin çalıştırılma talimatları)
+
+2. ÖRNEK KOD: CROSS COMPILATION VE IPC SİSTEMİ (Aşama 1 & 4)
+---------------------------------------------------------
+Shared Memory (Ring Buffer) üzerinden haberleşen süreçler için tanımlanan C yapısı:
+
+```c
+// source_code/ipc/includes/ipc.h (Özet)
+typedef struct s_telemetry {
+    uint32_t seq;
+    int32_t  temp;
+    int32_t  pres;
+    int32_t  hum;
+    int16_t  accel_x;
+    int16_t  accel_y;
+    int16_t  accel_z;
+    uint64_t timestamp;
+} t_telemetry;
+
+typedef struct s_shm_ring {
+    volatile uint64_t write_idx;
+    volatile uint64_t read_idx;
+    volatile int      shutdown;
+    sem_t             sem_w; // Boş slot sayacı
+    sem_t             sem_r; // Dolu slot sayacı
+    t_telemetry       slots[RING_SIZE];
+} t_shm_ring;
+```
+Derleme: `aarch64-linux-gnu-gcc -Wall -O2 -o sensor_reader sensor_reader.c -lpthread -lrt`
+
+3. ÖRNEK KOD: MINIMAL ROOTFS OLUŞTURMA (Aşama 2)
+---------------------------------------------------------
+Bash script ile FHS dizin yapısının ve BusyBox init'in ayarlanması:
+
+```bash
+# rootfs/build_rootfs.sh (Özet)
+mkdir -p rootfs_staging/{bin,sbin,etc,proc,sys,dev,usr/bin,usr/sbin}
+
+# Init Konfigürasyonu
+cat << 'EOF' > rootfs_staging/etc/inittab
+::sysinit:/etc/init.d/rcS
+::respawn:-/bin/sh
+ttyAMA0::respawn:-/bin/sh
+EOF
+
+# cpio ile initramfs paketleme
+cd rootfs_staging
+find . -print0 | cpio --null -ov --format=newc | gzip -9 > ../rootfs.cpio.gz
+```
+
+4. ÖRNEK KOD: QEMU BOOT KOMUTU (Aşama 3)
+---------------------------------------------------------
+Kernel ve oluşturulan Ext4 dosya sistemini QEMU üzerinde ARMv8-A mimarisiyle başlatma:
+
+```bash
+qemu-system-aarch64 \
+    -machine virt -cpu cortex-a72 -m 256M -nographic \
+    -kernel Image \
+    -drive file=rootfs.ext4,format=raw,if=virtio \
+    -append "root=/dev/vda rw console=ttyAMA0 earlycon=pl011,0x09000000 panic=5"
+```
+
+5. ÖRNEK KOD: DEVICE TREE (Aşama 5)
+---------------------------------------------------------
+I2C bus üzerine sensör nodelarının eklenmesi:
+
+```dts
+// dts/i2c-sensors.dtsi
+&i2c1 {
+    status = "okay";
+    clock-frequency = <400000>;
+
+    bmp280: pressure@76 {
+        compatible = "bosch,bmp280"; // Kernel Driver eşleşme stringi
+        reg = <0x76>;
+        status = "okay";
+    };
+};
+```
+
+6. ÖRNEK KOD: KERNEL CHARACTER DRIVER ANALİZİ (Aşama 6)
+---------------------------------------------------------
+File operations yapısı ve Kernel-Space'ten User-Space'e veri kopyalama mantığı:
+
+```c
+// source_code/driver/telemetry_sensor.c (Özet)
+static ssize_t sensor_read(struct file *file, char __user *user_buf, size_t count, loff_t *ppos)
+{
+    // ... Sensör verisi (buf) oluşturulur ...
+    // Doğrudan pointer kullanmak yerine güvenli aktarım (page fault önlemi)
+    if (copy_to_user(user_buf, buf, len)) {
+        return -EFAULT;
+    }
+    *ppos += len;
+    return len;
+}
+
+static const struct file_operations sensor_fops = {
+    .owner   = THIS_MODULE,
+    .read    = sensor_read,
+    .open    = sensor_open,
+    .release = sensor_release,
+};
+```
 ================================================================================
