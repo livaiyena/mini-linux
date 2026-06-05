@@ -121,4 +121,48 @@ DTS Hiyerarşisi ve Eşleşme (Binding):
 
 Not: QEMU "virt" machine gerçek bir I2C controller sunmadığı için fiziksel
 sensör entegrasyonu gerçek donanımda (ör. Raspberry Pi) doğrulanır.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+BÖLÜM 7: LINUX I2C KARAKTER SÜRÜCÜSÜ (DRIVER ANALİZİ)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Kernel modülünün yaşam döngüsü iki ana fonksiyona dayanır:
+  - probe(): Device Tree üzerinden eşleşme sağlandığında çağrılır. Bellek 
+    tahsisi, interrupt ayarı ve /dev düğümünün (node) oluşturulmasını sağlar.
+  - remove(): Modül sistemden kaldırıldığında çağrılır, tahsis edilen
+    bellekleri güvenle serbest bırakır (memory leak engellenir).
+
+Kullanıcı alanına veri aktarımı:
+Kernel Space ile User Space farklı sanal adres alanları kullanır. Güvenlik 
+zafiyetleri (ör. page fault, yetkisiz bellek erişimi) yaşanmaması için 
+işaretçiler doğrudan dereference edilemez; veri aktarımı 'copy_to_user()' 
+ve 'copy_from_user()' makrolarıyla güvenli şekilde sağlanır.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+BÖLÜM 8: POSIX SHARED MEMORY IPC MİMARİSİ
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+İki bağımsız süreç ('sensor_reader' ve 'logger_app') arasında yüksek frekanslı 
+veri aktarımı için fiziksel bellekte (RAM) ortak bir bölge kullanılır.
+
+Sistem Çağrıları (Syscalls):
+  - shm_open(): /dev/shm altında bellek tabanlı dosya oluşturur.
+  - ftruncate(): Bellek segmentinin boyutunu ayarlar.
+  - mmap(): File descriptor'ı sürecin sanal adres alanına eşler.
+
+Senkronizasyon:
+Ring buffer, overflow/underflow durumlarını engellemek için iki adet
+POSIX Semaphore (sem_w: boş slot sayısı, sem_r: dolu slot sayısı) ile yönetilir.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+BÖLÜM 9: POWER RESILIENCE (GÜÇ KESİNTİSİ DAYANIKLILIĞI)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Gömülü sistemin elektrik kesintilerine dayanıklı dosya yazma yeteneği 
+'filesync' modülü ve logger üzerinde sağlanmıştır.
+
+Kritik Özellikler:
+  - O_DSYNC Flag: Verilerin Kernel Page Cache'te beklemeden doğrudan fiziksel
+    disk cihazına (Storage) gitmesini zorunlu kılar.
+  - Atomic Write Pattern (Güvenli Kopyalama): Dosya geçici bir isme 
+    (.sync_tmp) yazılır, fdatasync() ile kalıcı hale getirilir, rename() ile 
+    hedefe taşınır ve dizin sync_directory() ile güncellenir. Yarım yazılmış 
+    (corrupt) dosya ihtimali sıfıra indirgenir.
 ================================================================================
