@@ -38,6 +38,27 @@ jobs:
         # Verify the initramfs was created
         ls -la rootfs/rootfs.cpio.gz
 
+    - name: QEMU Boot Smoke Test
+      run: |
+        sudo apt-get update -qq && sudo apt-get install -y -qq qemu-system-arm > /dev/null 2>&1
+        # Build the kernel inside Docker
+        bash qemu/build_qemu_env.sh kernel
+        # Create ext4 disk image from the rootfs staging
+        bash qemu/build_qemu_env.sh disk
+        # Boot QEMU with a 20-second timeout and capture serial output
+        timeout 20 qemu-system-aarch64 \
+          -machine virt -cpu cortex-a72 -m 256M -nographic \
+          -kernel qemu/Image \
+          -drive file=qemu/rootfs.ext4,format=raw,if=virtio \
+          -append "root=/dev/vda rw console=ttyAMA0 earlycon=pl011,0x09000000 panic=5" \
+          > qemu_output.log 2>&1 || true
+        echo "=== QEMU Boot Output (last 30 lines) ==="
+        tail -30 qemu_output.log
+        # Verify critical boot milestones
+        grep -q "VFS: Mounted root" qemu_output.log || { echo "FAIL: Root filesystem not mounted"; exit 1; }
+        grep -q "TELEMETRY SYSTEM AUTO-START" qemu_output.log || { echo "FAIL: Init script did not run"; exit 1; }
+        echo "PASS: QEMU boot smoke test successful"
+
     - name: Upload Build Artifacts
       uses: actions/upload-artifact@v4
       with:
@@ -47,3 +68,4 @@ jobs:
           build/sensor_reader
           source_code/driver/telemetry_sensor.ko
           rootfs/rootfs.cpio.gz
+          qemu_output.log
