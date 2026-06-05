@@ -1,4 +1,5 @@
 #!/bin/bash
+#fast build file for full system
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -9,21 +10,25 @@ fail()  { printf "\033[1;31m[FAIL]\033[0m  %s\n" "$1"; exit 1; }
 
 command -v docker >/dev/null 2>&1 || fail "Docker is not installed."
 
-info "Step 1/5: Building Docker build environment..."
+info "Step 1/6: Building Docker build environment..."
 make -C "${ROOT_DIR}" docker-build
 ok "Docker image ready"
 
-info "Step 2/5: Cross-compiling IPC binaries and kernel module..."
+info "Step 2/6: Compiling Linux Kernel (needed for Driver headers)..."
+bash "${ROOT_DIR}/qemu/build_qemu_env.sh" kernel
+ok "Kernel Image ready"
+
+info "Step 3/6: Cross-compiling IPC binaries and kernel module..."
 docker run --rm -v "${ROOT_DIR}":/project embedded-linux-env make all
 ok "All binaries compiled"
 
-info "Step 3/5: Generating BusyBox RootFS..."
+info "Step 4/6: Generating BusyBox RootFS..."
 bash "${ROOT_DIR}/rootfs/build_rootfs.sh"
 ok "RootFS created"
 
-info "Step 4/5: Compiling Linux Kernel and creating ext4 disk image..."
-bash "${ROOT_DIR}/qemu/build_qemu_env.sh" all
-ok "Kernel and disk image ready"
+info "Step 5/6: Creating ext4 disk image..."
+bash "${ROOT_DIR}/qemu/build_qemu_env.sh" disk
+ok "Disk image ready"
 
-info "Step 5/5: Booting QEMU simulation..."
+info "Step 6/6: Booting QEMU simulation..."
 bash "${ROOT_DIR}/qemu/build_qemu_env.sh" boot-docker

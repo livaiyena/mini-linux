@@ -1,8 +1,10 @@
 CROSS_COMPILE ?= aarch64-linux-gnu-
 CC = $(CROSS_COMPILE)gcc
 CFLAGS = -Wall -O2 -I./source_code/ipc/includes
-LDFLAGS = -lpthread -lrt
+LDFLAGS = -lpthread -lrt -static
 
+# Look for the custom compiled ARM64 kernel first, then fallback to host kernel
+CUSTOM_KERNEL := $(shell ls -d $(CURDIR)/qemu/linux-* 2>/dev/null | head -n 1)
 KERNEL_DIR_UNAME := /lib/modules/$(shell uname -r)/build
 KERNEL_DIR ?= $(if $(wildcard $(KERNEL_DIR_UNAME)),$(KERNEL_DIR_UNAME),$(shell ls -d /lib/modules/*/build 2>/dev/null | head -n 1))
 ARCH ?= arm64
