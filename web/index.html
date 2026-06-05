@@ -298,14 +298,31 @@ async function runAiAnalysis() {
   resultDiv.innerText = "Connecting to Google Gemini API... Please wait.";
   resultDiv.style.borderColor = "#8b949e";
 
-  let API_KEY = sessionStorage.getItem("gemini_api_key");
-  if (!API_KEY) {
-    API_KEY = prompt("Please enter your Google Gemini API Key for analysis:");
-    if (!API_KEY) {
-      alert("API Key is required for analysis.");
-      return;
+  // First try to fetch the API key injected by the build system from the host's .env
+  let API_KEY = "";
+  try {
+    const keyResp = await fetch('/cgi-bin/get_api_key.cgi');
+    const keyText = await keyResp.text();
+    if (keyText && keyText.trim().length > 10) {
+      API_KEY = keyText.trim();
     }
-    sessionStorage.setItem("gemini_api_key", API_KEY);
+  } catch (e) {
+    console.log("Could not fetch API key from backend.");
+  }
+
+  // If not found in backend, try sessionStorage or prompt
+  if (!API_KEY) {
+    API_KEY = sessionStorage.getItem("gemini_api_key");
+    if (!API_KEY) {
+      API_KEY = prompt("API Key not found in backend. Please enter your Google Gemini API Key:");
+      if (!API_KEY) {
+        alert("API Key is required for analysis.");
+        btn.disabled = false;
+        btn.innerText = "Analyze Last Logs";
+        return;
+      }
+      sessionStorage.setItem("gemini_api_key", API_KEY);
+    }
   }
 
   const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${API_KEY}`;
