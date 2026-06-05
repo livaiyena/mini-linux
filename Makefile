@@ -33,7 +33,10 @@ $(SENSOR_BIN): $(IPC_DIR)/sensor_reader.c $(IPC_DIR)/ipc_utils.c
 
 driver:
 	@echo "obj-m += telemetry_sensor.o" > $(DRIVER_DIR)/Makefile
-	@if grep -q "x86" $(KERNEL_DIR)/.config 2>/dev/null; then \
+	@if [ "$(KERNEL_DIR)" = "$(CUSTOM_KERNEL)" ]; then \
+		echo "Building kernel module for ARM64 using custom kernel at $(KERNEL_DIR)"; \
+		make -C $(KERNEL_DIR) M=$(CURDIR)/$(DRIVER_DIR) ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- modules; \
+	elif grep -q "CONFIG_X86=y" $(KERNEL_DIR)/.config 2>/dev/null; then \
 		echo "Warning: Compiling kernel module for x86 host to check syntax (ARM kernel not found in KERNEL_DIR)"; \
 		make -C $(KERNEL_DIR) M=$(CURDIR)/$(DRIVER_DIR) ARCH=x86 CROSS_COMPILE= modules; \
 	else \

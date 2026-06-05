@@ -55,12 +55,12 @@ echo "    TELEMETRY SYSTEM AUTO-START       "
 echo "[*] Loading telemetry_sensor.ko..."
 insmod /lib/modules/telemetry_sensor.ko
 
-echo "[*] Starting logger_app in background..."
-logger_app &
-sleep 1
-
 echo "[*] Starting sensor_reader in background..."
 sensor_reader &
+sleep 1
+
+echo "[*] Starting logger_app in background..."
+logger_app &
 
 RCS_EOF
     chmod +x "${ROOTFS_DIR}/etc/init.d/rcS"
