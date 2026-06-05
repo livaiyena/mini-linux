@@ -84,6 +84,50 @@
   .ay   .bar-fill { background: linear-gradient(90deg, #ffa657, #d18616); }
   .az   .bar-fill { background: linear-gradient(90deg, #ff7b72, #da3633); }
 
+  .ai-section {
+    max-width: 1200px;
+    margin: 0 auto 24px;
+    padding: 0 24px;
+  }
+  .ai-section h2 {
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: #8b949e;
+    margin-bottom: 12px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  #ai-btn {
+    background: linear-gradient(90deg, #d2a8ff, #8957e5);
+    border: none;
+    border-radius: 6px;
+    color: white;
+    padding: 6px 12px;
+    font-size: 11px;
+    font-family: inherit;
+    font-weight: bold;
+    cursor: pointer;
+    text-transform: uppercase;
+    transition: opacity 0.2s;
+  }
+  #ai-btn:hover { opacity: 0.8; }
+  #ai-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  #ai-result {
+    background: #0d1117;
+    border: 1px solid #30363d;
+    border-left: 3px solid #8957e5;
+    border-radius: 8px;
+    padding: 16px;
+    font-size: 13px;
+    line-height: 1.5;
+    color: #c8d6e5;
+    min-height: 80px;
+    white-space: pre-wrap;
+    display: none;
+  }
+
   .log-section {
     max-width: 1200px;
     margin: 0 auto;
@@ -165,6 +209,14 @@
   </div>
 </div>
 
+<div class="ai-section">
+  <h2>
+    AI Automated Log Analysis
+    <button id="ai-btn" onclick="runAiAnalysis()">Analyze Last Logs</button>
+  </h2>
+  <div id="ai-result"></div>
+</div>
+
 <div class="log-section">
   <h2>Live Data Stream</h2>
   <div id="log-box"></div>
@@ -227,6 +279,70 @@ function fetchData() {
       document.getElementById('status').textContent = 'OFFLINE';
       document.getElementById('status').className = 'error';
     });
+}
+
+async function runAiAnalysis() {
+  const btn = document.getElementById('ai-btn');
+  const resultDiv = document.getElementById('ai-result');
+  
+  // Extract all currently visible log entries
+  const entries = Array.from(document.querySelectorAll('#log-box .entry')).map(e => e.innerText);
+  if (entries.length === 0) {
+    alert("No log data available to analyze yet.");
+    return;
+  }
+  
+  btn.disabled = true;
+  btn.innerText = "Analyzing...";
+  resultDiv.style.display = "block";
+  resultDiv.innerText = "Connecting to Google Gemini API... Please wait.";
+  resultDiv.style.borderColor = "#8b949e";
+
+  let API_KEY = sessionStorage.getItem("gemini_api_key");
+  if (!API_KEY) {
+    API_KEY = prompt("Please enter your Google Gemini API Key for analysis:");
+    if (!API_KEY) {
+      alert("API Key is required for analysis.");
+      return;
+    }
+    sessionStorage.setItem("gemini_api_key", API_KEY);
+  }
+
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${API_KEY}`;
+  
+  const prompt = `You are an AI diagnostic assistant for an embedded Linux telemetry system.
+The system generates 6 data points per sequence: Temperature (°C x100), Pressure (hPa), Humidity (% x100), and Accelerometer X, Y, Z (mg).
+Analyze the following recent log entries and provide a brief, professional status report. 
+Highlight any potential anomalies (e.g., sudden spikes, missing data).
+Keep it under 3-4 sentences.
+
+Logs:
+${entries.join('\n')}`;
+
+  try {
+    const response = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }]
+      })
+    });
+    
+    const data = await response.json();
+    if (data.error) {
+      throw new Error(data.error.message || "API Error");
+    }
+    
+    const textResult = data.candidates[0].content.parts[0].text;
+    resultDiv.innerText = textResult;
+    resultDiv.style.borderColor = "#3fb950";
+  } catch (err) {
+    resultDiv.innerText = "Analysis Failed: " + err.message;
+    resultDiv.style.borderColor = "#f85149";
+  } finally {
+    btn.disabled = false;
+    btn.innerText = "Analyze Last Logs";
+  }
 }
 
 setInterval(fetchData, 1000);
