@@ -306,7 +306,7 @@ async function runAiAnalysis() {
   // First try to fetch the API key injected by the build system from the host's .env
   let API_KEY = "";
   try {
-    const keyResp = await fetch('/cgi-bin/get_api_key.cgi');
+    const keyResp = await fetch('/cgi-bin/get_api_key.cgi', { cache: 'no-store' });
     const keyText = await keyResp.text();
     if (keyText && keyText.trim().length > 10) {
       API_KEY = keyText.trim();
