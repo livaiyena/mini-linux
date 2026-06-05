@@ -1,0 +1,99 @@
+Başlangıç promptum (Ödev gerekliliklerine bağlı özetlenerek yazılan prompt yine ai yardımıyla düzenlenildi)
+	{
+		Elimde birbirine bağlı iki farklı ödev/proje var ve amacım sıfırdan mini bir Embedded Linux sistemi geliştirmek (Cross-compilation, RootFS, QEMU boot, IPC, Device Tree ve Driver Analizi aşamalarından oluşuyor).
+		KESİN KURALLARIM:
+
+		1. Her aşamada benim için bir yol haritası çıkar.
+		2. Bir konuyu açıklarken, mutlaka tüm mimari alternatiflerimi listele. (Örneğin: RootFS yaparken BusyBox dışında hangi araçlar var? IPC için pipe dışında shared memory veya message queue kullanmanın avantajı/dezavantajı nedir? Hangi durumda hangisi seçilmelidir?)
+		3. Her konunun amacını ve arka planda nasıl çalıştığını (işletim sistemi, kernel ve donanım seviyesinde) teknik bir dille anlat.
+		PROJE AŞAMALARI:
+
+		* Aşama 1 - Cross Compilation: ARM mimarisi için C uygulaması (Sensör, log veya mini shell) derleme.
+		* Aşama 2 - RootFS: BusyBox tabanlı minimal RootFS oluşturma (read-only vs writable yapıları).
+		* Aşama 3 - QEMU Boot: Kernel boot, rootfs mount ve serial console ayarlamaları.
+		* Aşama 4 - IPC Sistemi: İki process arası haberleşme (fork, exec, pipe vb.).
+		* Aşama 5 - Device Tree: DTS dosyası düzenleme (GPIO, UART vs.).
+		* Aşama 6 - Driver Analizi: Basit character driver (file_operations, open/read/write) mantığı.
+		Lütfen bu sürecin tamamını kapsayan bir Yol Haritası ve Alternatifler Listesi çıkar.
+	}
+
+1. Aşama promptu (Daha önceden c ile dosya senkronizasyonu kodu yazmıştım, bunu ai ile uyarlıyorum)
+	{
+		I have an existing C code for a file sync system. (git@github.com:livaiyena/multi-thread-file-sync.git)
+		I need to adapt this code for an ARMv8-A Embedded Linux system to make it completely resilient to sudden power outages.
+		Review my code, and modify the file handling operations (e.g., using O_SYNC or fdatasync) to ensure the page cache is immediately flushed to the physical storage.
+		Please explain the kernel-level page cache mechanism and provide the cross-compilation commands using aarch64-linux-gnu-gcc
+	}
+
+2. Aşama
+	{
+		Provide a step-by-step shell script to create a minimal BusyBox-based RootFS for an ARMv8-A QEMU system.
+		Explain the Linux Filesystem Hierarchy Standard (FHS) directories required (/proc, /sys, /dev, /etc). 
+		Outline the difference between statically linking BusyBox versus dynamic linking, and generate the necessary commands to build it
+	}
+	{
+		Generate the configuration files (/etc/inittab and /etc/init.d/rcS) for a BusyBox init system.
+		Explain how the kernel hands over control to PID 1, and how the rcS script mounts the virtual filesystems (devtmpfs, proc, sysfs) during the boot phase.
+		Provide the expected terminal output of a successful cross-compilation and installation.
+	}
+
+3. Aşama
+	{
+		Generate a QEMU AArch64 boot command to launch a custom Linux kernel with a BusyBox rootfs.
+		The rootfs is packaged as an ext4 raw disk image (not an initramfs) to allow testing of persistent O_DSYNC disk writes from our telemetry app.
+		Explain the QEMU flags used for the virtual board (-machine virt), CPU, and memory.
+		Provide the exact Kernel bootargs (append string) required to mount the ext4 rootfs (root=/dev/vda) and route the kernel panics/logs to the serial console (console=ttyAMA0).
+	}
+	{
+		Generate the Linux shell commands to create a 50MB empty raw disk image, format it as ext4, loop-mount it, and copy an existing BusyBox rootfs folder into it. 
+		Explain how QEMU connects this image via VirtIO block device.
+	}
+
+4. Aşama
+	{
+		Write an ARMv8-A compatible C application demonstrating high-performance IPC using POSIX Shared Memory (shm_open, mmap) and POSIX Semaphores for synchronization.
+		Process A (Sensor Reader) writes high-frequency telemetry data to the shared memory segment, and Process B (Logger App) reads and saves it. 
+		Explain the system call overhead differences between pipes and shared memory, and provide compilation and testing steps for a minimalist BusyBox environment.
+	}
+
+5. Aşama
+	{
+		We are simulating a telemetry system on an ARMv8-A board. Generate a Device Tree node for an I2C-based environmental sensor (like a BMP280 or MPU6050) connected to I2C bus 1.
+		Requirements:
+			Include the reg property to define the I2C address of the sensor.
+			Explain how the Linux kernel uses the compatible string to find and bind the correct kernel module (driver) to this physical device during the boot phase.
+	}
+
+6. Aşama
+	{
+		Write a skeleton for a Linux Loadable Kernel Module (LKM) character device driver for a dummy I2C telemetry sensor.
+		Requirements:
+			Use the of_match_table mechanism so the driver can automatically bind to the device defined in our Device Tree (e.g., compatible = "custom,telemetry-sensor").
+			Explain the execution flow of the probe() and remove() functions during the kernel boot phase.
+	}
+	{
+		Expand the I2C character driver skeleton by implementing the file_operations struct.
+		Requirements:
+			Implement a basic read function in the kernel module that generates/reads dummy sensor data.
+			Explain how this data is safely passed from Kernel Space to User Space using the copy_to_user() macro.
+			Explain why a kernel driver cannot directly dereference a user-space memory pointer passed via the read() syscall.
+	}
+
+7. Aşama (Bonus & Sorun Giderme)
+	{
+		I need an automation script named `run.sh` to orchestrate my entire embedded Linux build pipeline.
+		Requirements:
+			The script should automate compiling the C applications via Makefile, generating the rootfs image via build_rootfs.sh, and executing QEMU.
+			It must inject a GitHub PAT (GITHUB_KEY) from a local `.env` file into the rootfs securely via a CGI script.
+	}
+	{
+		Help me build a Web-based Telemetry Dashboard for my BusyBox system.
+		Requirements:
+			Use Vanilla JS to parse a CSV log file via BusyBox httpd and CGI.
+			Integrate the GitHub Models API (gpt-4o-mini) to provide real-time AI-driven log diagnostics.
+			Ensure the API key is retrieved securely via `fetch` from the CGI backend, using `cache: 'no-store'` to prevent stale cache issues.
+	}
+	{
+		Problem-solving task: My telemetry system uses `parseInt` in Javascript to divide values by 100, but I updated my C-level logger app to output floating-point values directly to the CSV file (e.g., 23.48).
+		Modify the Javascript frontend to parse floats correctly. Also, I encountered a "Permission denied" error when running `make clean` because the build artifacts were created by Docker as root. How can I safely bypass this to clean up the directory?
+	}
