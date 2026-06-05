@@ -174,7 +174,7 @@
   <div class="card temp">
     <div class="label">Temperature</div>
     <div class="value" id="v-temp">--</div>
-    <div class="unit">&deg;C (x100)</div>
+    <div class="unit">&deg;C</div>
     <div class="bar-track"><div class="bar-fill" id="b-temp" style="width:0%"></div></div>
   </div>
   <div class="card pres">
@@ -186,7 +186,7 @@
   <div class="card hum">
     <div class="label">Humidity</div>
     <div class="value" id="v-hum">--</div>
-    <div class="unit">% (x100)</div>
+    <div class="unit">%</div>
     <div class="bar-track"><div class="bar-fill" id="b-hum" style="width:0%"></div></div>
   </div>
   <div class="card ax">
@@ -238,12 +238,17 @@ function fetchData() {
       if (f.length < 7) return;
 
       const seq  = f[0];
-      const temp = parseInt(f[1]);
-      const pres = parseInt(f[2]);
-      const hum  = parseInt(f[3]);
+      const rawTemp = parseInt(f[1]);
+      const rawPres = parseInt(f[2]);
+      const rawHum  = parseInt(f[3]);
       const ax   = parseInt(f[4]);
       const ay   = parseInt(f[5]);
       const az   = parseInt(f[6]);
+
+      // Embedded systems use integers (x100) to avoid slow float math. We convert them back for UI.
+      const temp = (rawTemp / 100).toFixed(2);
+      const pres = (rawPres / 100).toFixed(1);
+      const hum  = (rawHum / 100).toFixed(2);
 
       document.getElementById('v-temp').textContent = temp;
       document.getElementById('v-pres').textContent = pres;
