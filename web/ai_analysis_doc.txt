@@ -1,0 +1,79 @@
+================================================================================
+  YAPAY ZEKA DESTEKLİ OTOMATİK LOG ANALİZİ (AI LOG ANALYSIS)
+  Hedef: Google Gemini REST API ile Gömülü Sistem Sağlık Raporu
+================================================================================
+
+Bu belge, Web Dashboard üzerinden tek tıkla çalıştırılan, gömülü sistemin
+ürettiği ham sensör verilerini anlamlandıran Yapay Zeka (AI) mekanizmasını
+açıklar.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+1. MİMARİ VE TASARIM KARARLARI
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Gömülü sistemler (özellikle BusyBox tabanlı minimal sistemler) internete
+kapalı, kısıtlı hafızaya sahip ortamlardır. Bu sistemin içine Python, curl,
+OpenSSL veya karmaşık HTTP kütüphaneleri yüklemek kaynak israfıdır.
+
+Bu sebeple AI entegrasyonu tamamen "Frontend (İstemci) Tabanlı" yapılmıştır:
+  - İşlem QEMU sanal makinesi içinde DEĞİL, kullanıcının Host tarayıcısında
+    çalışır.
+  - Tarayıcı zaten host makinesinde olduğu için internet erişimi vardır.
+  - Sadece Vanilla JavaScript kullanılarak Google Gemini REST API'sine
+    doğrudan POST isteği atılır.
+  - Backend'e (BusyBox httpd) ek yük binmez.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+2. GÜVENLİK VE GİZLİLİK (API KEY YÖNETİMİ)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+API anahtarlarının koda gömülmesi (Hardcoding) büyük bir güvenlik zafiyetidir
+ve GitHub Push Protection tarafından anında engellenir.
+
+Bu projede 2 aşamalı hibrit bir güvenlik mekanizması kurulmuştur:
+
+  A) Dinamik Enjeksiyon (Otomatik Kullanım)
+     - Kullanıcı Host makinesinde projeyi derlerken (run.sh), derleme
+       betiği `.env` dosyasını arar.
+     - Eğer `.env` varsa, içindeki GEMINI_API_KEY okunur.
+     - QEMU RootFS'i oluşturulurken bu anahtar gizlice `/cgi-bin/get_api_key.cgi`
+       içine yazılır.
+     - Web dashboard açıldığında önce bu gizli CGI'ya sorar. Anahtar
+       gelirse kullanıcıya hiçbir şey sormadan işlemi yapar.
+
+  B) Tarayıcı Pop-up (Manuel Kullanım)
+     - Eğer CI/CD sunucusunda derlenmişse (sunucuda .env yoktur),
+       dashboard API anahtarını bulamaz.
+     - Bu durumda tarayıcıda güvenli bir `prompt()` penceresi açılır ve
+       kullanıcıdan anahtar istenir.
+     - Girilen anahtar `sessionStorage` (oturum hafızası) içinde tutulur,
+       sekme kapanınca silinir. Koda asla kaydedilmez.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+3. API İSTEK YAPISI VE PROMPT MÜHENDİSLİĞİ
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Kullanılan Model: gemini-1.5-flash-latest
+  Bağlantı Türü: REST API (POST)
+
+  Dashboard, ekranda o an akmakta olan son 50 telemetri kaydını birleştirip
+  AI modeline şu sistem komutuyla (Prompt) yollar:
+
+    "You are an AI diagnostic assistant for an embedded Linux telemetry
+     system. The system generates 6 data points per sequence: Temperature,
+     Pressure, Humidity, and Accelerometer X, Y, Z.
+     Analyze the following recent log entries and provide a brief,
+     professional status report. Highlight any potential anomalies
+     (e.g., sudden spikes, missing data). Keep it under 3-4 sentences."
+
+  AI modeli bu veriyi işler (örneğin sıcaklığın 28°C'den aniden 150°C'ye
+  fırlayıp fırlamadığına bakar) ve JSON formatında cevap döner.
+  Dönen cevap anında Dashboard'daki yeşil çerçeveli bilgi kutusuna yazılır.
+
+
+================================================================================
+  SON
+================================================================================

@@ -330,7 +330,7 @@ async function runAiAnalysis() {
     }
   }
 
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${API_KEY}`;
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${API_KEY}`;
   
   const prompt = `You are an AI diagnostic assistant for an embedded Linux telemetry system.
 The system generates 6 data points per sequence: Temperature (°C x100), Pressure (hPa), Humidity (% x100), and Accelerometer X, Y, Z (mg).

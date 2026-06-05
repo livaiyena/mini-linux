@@ -104,6 +104,13 @@ http://localhost:8080
 ```
 A real-time dashboard will display live sensor data (Temperature, Pressure, Humidity, Accelerometer XYZ) with animated progress bars, streamed via BusyBox `httpd` and CGI.
 
+### AI Automated Log Analysis
+The Web Dashboard includes a **Google Gemini AI** integration to perform real-time health checks on your embedded system logs.
+To use it securely:
+1. Create a `.env` file in the project root with your API key: `GEMINI_API_KEY=your_key_here`
+2. Run `./run.sh` to securely inject the key into the QEMU RootFS.
+3. Click **"Analyze Last Logs"** on the dashboard. The AI will read the latest telemetry sequence and report anomalies directly in your browser.
+
 ### Docker + QEMU CI/CD
 Every push to `main` triggers a GitHub Actions pipeline that:
 1. Builds the Docker environment
