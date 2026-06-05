@@ -14,37 +14,36 @@ jobs:
     - name: Checkout Repository
       uses: actions/checkout@v4
 
-    - name: Install ARMv8 Toolchain & Dependencies
+    - name: Build Docker Environment
       run: |
-        sudo apt-get update
-        sudo apt-get install -y gcc-aarch64-linux-gnu make qemu-system-arm linux-headers-$(uname -r)
+        # Leverage the project's Dockerfile for all dependencies
+        make docker-build
 
-    - name: Build IPC Applications
+    - name: Cross-Compile Source Code (IPC & Driver)
       run: |
-        # IPC binaries rely on POSIX shm and semaphores, handled by the Makefile
-        make ipc
+        # Run the master Makefile inside the isolated container
+        docker run --rm -v ${{ github.workspace }}:/project embedded-linux-env make all
         
-    - name: Verify IPC Binaries
+    - name: Verify Compiled Binaries
       run: |
         file build/logger_app | grep "aarch64"
         file build/sensor_reader | grep "aarch64"
+        # The LKM is built for syntax checking; verify it exists
+        file source_code/driver/telemetry_sensor.ko
 
-    - name: Build Kernel Module (Host Architecture Check)
+    - name: Build Minimal BusyBox RootFS
       run: |
-        # For CI purposes, we do a syntax & build check of the LKM against the runner's Linux kernel.
-        # Note: We override CROSS_COMPILE to empty so it builds for x86_64 host just to test C syntax and kernel APIs.
-        make driver CROSS_COMPILE="" ARCH="x86" KERNEL_DIR="/lib/modules/$(uname -r)/build"
-
-    - name: Prepare Minimal RootFS Structure
-      run: |
-        make rootfs
-        ls -la build/rootfs/bin/
+        # Build the rootfs and inject binaries
+        bash rootfs/build_rootfs.sh
+        # Verify the initramfs was created
+        ls -la rootfs/rootfs.cpio.gz
 
     - name: Upload Build Artifacts
       uses: actions/upload-artifact@v4
       with:
-        name: embedded-binaries
+        name: embedded-rootfs-and-binaries
         path: |
           build/logger_app
           build/sensor_reader
           source_code/driver/telemetry_sensor.ko
+          rootfs/rootfs.cpio.gz
