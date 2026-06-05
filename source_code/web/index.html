@@ -300,7 +300,7 @@ async function runAiAnalysis() {
   btn.disabled = true;
   btn.innerText = "Analyzing...";
   resultDiv.style.display = "block";
-  resultDiv.innerText = "Connecting to Google Gemini API... Please wait.";
+  resultDiv.innerText = "Connecting to GitHub Models API... Please wait.";
   resultDiv.style.borderColor = "#8b949e";
 
   // First try to fetch the API key injected by the build system from the host's .env
@@ -317,22 +317,22 @@ async function runAiAnalysis() {
 
   // If not found in backend, try sessionStorage or prompt
   if (!API_KEY) {
-    API_KEY = sessionStorage.getItem("gemini_api_key");
+    API_KEY = sessionStorage.getItem("github_api_key");
     if (!API_KEY) {
-      API_KEY = prompt("API Key not found in backend. Please enter your Google Gemini API Key:");
+      API_KEY = prompt("API Key not found in backend. Please enter your GitHub PAT Key:");
       if (!API_KEY) {
         alert("API Key is required for analysis.");
         btn.disabled = false;
         btn.innerText = "Analyze Last Logs";
         return;
       }
-      sessionStorage.setItem("gemini_api_key", API_KEY);
+      sessionStorage.setItem("github_api_key", API_KEY);
     }
   }
 
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=${API_KEY}`;
+  const url = `https://models.inference.ai.azure.com/chat/completions`;
   
-  const prompt = `You are an AI diagnostic assistant for an embedded Linux telemetry system.
+  const promptText = `You are an AI diagnostic assistant for an embedded Linux telemetry system.
 The system generates 6 data points per sequence: Temperature (°C x100), Pressure (hPa), Humidity (% x100), and Accelerometer X, Y, Z (mg).
 Analyze the following recent log entries and provide a brief, professional status report. 
 Highlight any potential anomalies (e.g., sudden spikes, missing data).
@@ -344,9 +344,13 @@ ${entries.join('\n')}`;
   try {
     const response = await fetch(url, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { 
+        "Content-Type": "application/json",
+        "Authorization": "Bearer " + API_KEY
+      },
       body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }]
+        model: "gpt-4o-mini",
+        messages: [{ role: "user", content: promptText }]
       })
     });
     
@@ -355,7 +359,7 @@ ${entries.join('\n')}`;
       throw new Error(data.error.message || "API Error");
     }
     
-    const textResult = data.candidates[0].content.parts[0].text;
+    const textResult = data.choices[0].message.content;
     resultDiv.innerText = textResult;
     resultDiv.style.borderColor = "#3fb950";
   } catch (err) {

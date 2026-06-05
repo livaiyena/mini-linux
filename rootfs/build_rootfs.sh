@@ -173,7 +173,7 @@ echo ""
 API_EOF
         if [ -f "${SCRIPT_DIR}/../.env" ]; then
             # Read the value from the host's .env file
-            HOST_API_KEY=$(grep "GEMINI_API_KEY" "${SCRIPT_DIR}/../.env" | cut -d'=' -f2)
+            HOST_API_KEY=$(grep "GITHUB_KEY" "${SCRIPT_DIR}/../.env" | cut -d'=' -f2)
             echo "echo \"${HOST_API_KEY}\"" >> "${ROOTFS_DIR}/var/www/cgi-bin/get_api_key.cgi"
         else
             echo "echo \"\"" >> "${ROOTFS_DIR}/var/www/cgi-bin/get_api_key.cgi"
