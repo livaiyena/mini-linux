@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Telemetry Dashboard</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Courier New', monospace;
+    background: #0a0e17;
+    color: #c8d6e5;
+    min-height: 100vh;
+  }
+  header {
+    background: linear-gradient(135deg, #1a1e2e 0%, #0d1117 100%);
+    border-bottom: 1px solid #30363d;
+    padding: 16px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  header h1 {
+    font-size: 18px;
+    color: #58a6ff;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+  }
+  #status {
+    font-size: 12px;
+    padding: 4px 12px;
+    border-radius: 12px;
+    background: #1a3a1a;
+    color: #3fb950;
+    border: 1px solid #238636;
+  }
+  #status.error { background: #3a1a1a; color: #f85149; border-color: #da3633; }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 16px;
+    padding: 24px;
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+  .card {
+    background: linear-gradient(145deg, #161b22, #0d1117);
+    border: 1px solid #30363d;
+    border-radius: 12px;
+    padding: 20px;
+    transition: border-color 0.3s ease;
+  }
+  .card:hover { border-color: #58a6ff; }
+  .card .label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: #8b949e;
+    margin-bottom: 8px;
+  }
+  .card .value {
+    font-size: 32px;
+    font-weight: bold;
+    color: #f0f6fc;
+    margin-bottom: 4px;
+  }
+  .card .unit { font-size: 14px; color: #8b949e; }
+  .card .bar-track {
+    height: 4px;
+    background: #21262d;
+    border-radius: 2px;
+    margin-top: 12px;
+    overflow: hidden;
+  }
+  .card .bar-fill {
+    height: 100%;
+    border-radius: 2px;
+    transition: width 0.4s ease;
+  }
+  .temp .bar-fill { background: linear-gradient(90deg, #f97583, #d73a49); }
+  .pres .bar-fill { background: linear-gradient(90deg, #79c0ff, #1f6feb); }
+  .hum  .bar-fill { background: linear-gradient(90deg, #7ee787, #238636); }
+  .ax   .bar-fill { background: linear-gradient(90deg, #d2a8ff, #8957e5); }
+  .ay   .bar-fill { background: linear-gradient(90deg, #ffa657, #d18616); }
+  .az   .bar-fill { background: linear-gradient(90deg, #ff7b72, #da3633); }
+
+  .log-section {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 24px 24px;
+  }
+  .log-section h2 {
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: #8b949e;
+    margin-bottom: 12px;
+  }
+  #log-box {
+    background: #0d1117;
+    border: 1px solid #30363d;
+    border-radius: 8px;
+    padding: 12px;
+    height: 180px;
+    overflow-y: auto;
+    font-size: 12px;
+    line-height: 1.6;
+    color: #7ee787;
+  }
+  #log-box .entry { white-space: nowrap; }
+  #log-box .ts { color: #8b949e; }
+
+  footer {
+    text-align: center;
+    padding: 16px;
+    font-size: 11px;
+    color: #484f58;
+    border-top: 1px solid #21262d;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Telemetry Dashboard</h1>
+  <span id="status">LIVE</span>
+</header>
+
+<div class="grid">
+  <div class="card temp">
+    <div class="label">Temperature</div>
+    <div class="value" id="v-temp">--</div>
+    <div class="unit">&deg;C (x100)</div>
+    <div class="bar-track"><div class="bar-fill" id="b-temp" style="width:0%"></div></div>
+  </div>
+  <div class="card pres">
+    <div class="label">Pressure</div>
+    <div class="value" id="v-pres">--</div>
+    <div class="unit">hPa</div>
+    <div class="bar-track"><div class="bar-fill" id="b-pres" style="width:0%"></div></div>
+  </div>
+  <div class="card hum">
+    <div class="label">Humidity</div>
+    <div class="value" id="v-hum">--</div>
+    <div class="unit">% (x100)</div>
+    <div class="bar-track"><div class="bar-fill" id="b-hum" style="width:0%"></div></div>
+  </div>
+  <div class="card ax">
+    <div class="label">Accel X</div>
+    <div class="value" id="v-ax">--</div>
+    <div class="unit">mg</div>
+    <div class="bar-track"><div class="bar-fill" id="b-ax" style="width:0%"></div></div>
+  </div>
+  <div class="card ay">
+    <div class="label">Accel Y</div>
+    <div class="value" id="v-ay">--</div>
+    <div class="unit">mg</div>
+    <div class="bar-track"><div class="bar-fill" id="b-ay" style="width:0%"></div></div>
+  </div>
+  <div class="card az">
+    <div class="label">Accel Z</div>
+    <div class="value" id="v-az">--</div>
+    <div class="unit">mg</div>
+    <div class="bar-track"><div class="bar-fill" id="b-az" style="width:0%"></div></div>
+  </div>
+</div>
+
+<div class="log-section">
+  <h2>Live Data Stream</h2>
+  <div id="log-box"></div>
+</div>
+
+<footer>Embedded Linux Telemetry System &mdash; BusyBox httpd + CGI</footer>
+
+<script>
+const MAX_LOG = 50;
+
+function fetchData() {
+  fetch('/cgi-bin/telemetry.cgi')
+    .then(r => r.text())
+    .then(raw => {
+      const lines = raw.trim().split('\n').filter(l => l.length > 5);
+      if (lines.length === 0) return;
+      const last = lines[lines.length - 1];
+      const f = last.split(',');
+      if (f.length < 7) return;
+
+      const seq  = f[0];
+      const temp = parseInt(f[1]);
+      const pres = parseInt(f[2]);
+      const hum  = parseInt(f[3]);
+      const ax   = parseInt(f[4]);
+      const ay   = parseInt(f[5]);
+      const az   = parseInt(f[6]);
+
+      document.getElementById('v-temp').textContent = temp;
+      document.getElementById('v-pres').textContent = pres;
+      document.getElementById('v-hum').textContent  = hum;
+      document.getElementById('v-ax').textContent   = ax;
+      document.getElementById('v-ay').textContent   = ay;
+      document.getElementById('v-az').textContent   = az;
+
+      document.getElementById('b-temp').style.width = Math.min(((temp - 2000) / 1000) * 100, 100) + '%';
+      document.getElementById('b-pres').style.width = Math.min(((pres - 100000) / 5000) * 100, 100) + '%';
+      document.getElementById('b-hum').style.width  = Math.min(((hum - 4000) / 2000) * 100, 100) + '%';
+      document.getElementById('b-ax').style.width   = Math.min(((ax + 1000) / 2000) * 100, 100) + '%';
+      document.getElementById('b-ay').style.width   = Math.min(((ay + 1000) / 2000) * 100, 100) + '%';
+      document.getElementById('b-az').style.width   = Math.min(((az - 9000) / 2000) * 100, 100) + '%';
+
+      const box = document.getElementById('log-box');
+      lines.forEach(line => {
+        const div = document.createElement('div');
+        div.className = 'entry';
+        const parts = line.split(',');
+        div.innerHTML = '<span class="ts">[SEQ:' + parts[0].padStart(6,'0') + ']</span> '
+          + 'T:' + parts[1] + ' P:' + parts[2] + ' H:' + parts[3]
+          + ' A(' + parts[4] + ',' + parts[5] + ',' + parts[6] + ')';
+        box.appendChild(div);
+      });
+      while (box.children.length > MAX_LOG) box.removeChild(box.firstChild);
+      box.scrollTop = box.scrollHeight;
+
+      document.getElementById('status').textContent = 'LIVE';
+      document.getElementById('status').className = '';
+    })
+    .catch(() => {
+      document.getElementById('status').textContent = 'OFFLINE';
+      document.getElementById('status').className = 'error';
+    });
+}
+
+setInterval(fetchData, 1000);
+fetchData();
+</script>
+
+</body>
+</html>

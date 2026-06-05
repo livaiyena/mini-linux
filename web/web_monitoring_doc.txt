@@ -1,0 +1,230 @@
+================================================================================
+  WEB TABANLI TELEMETRİ İZLEME SİSTEMİ (MONITORING DASHBOARD)
+  Hedef: BusyBox httpd + CGI ile Gerçek Zamanlı Sensör Verisi Görüntüleme
+================================================================================
+
+Bu belge, gömülü Linux sistemi üzerinde çalışan hafif bir web sunucusu
+aracılığıyla telemetri verilerinin tarayıcı üzerinden gerçek zamanlı
+olarak izlenmesini açıklar.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+1. DOSYA YAPISI
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+    web/
+    ├── index.html                Ana dashboard sayfası (HTML + CSS + JS)
+    ├── cgi-bin/
+    │   └── telemetry.cgi         CGI betiği (shell script)
+    └── web_monitoring_doc.txt    Bu belge
+
+    Sistemde (QEMU RootFS içinde):
+    /var/www/
+    ├── index.html
+    └── cgi-bin/
+        └── telemetry.cgi
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+2. MİMARİ: BUSYBOX HTTPD + CGI
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Geleneksel web sunucuları (Apache, Nginx) gömülü sistemler için çok
+  büyüktür. Bu projede BusyBox'ın yerleşik httpd applet'ini kullanıyoruz.
+
+  BusyBox httpd özellikleri:
+    - Toplam boyut: ~20KB (BusyBox'a gömülü)
+    - CGI desteği var (/cgi-bin/ dizini)
+    - Statik dosya sunumu var
+    - Ayrı bir paket kurulumu gerektirmez
+
+  Veri akış mimarisi:
+
+  ┌────────────────────────────────────────────────────────────────┐
+  │                    QEMU Sanal Makine                           │
+  │                                                                │
+  │  sensor_reader ──→ /dev/shm/telemetry_shm ──→ logger_app     │
+  │                                                  │             │
+  │                                                  ▼             │
+  │                                          /tmp/telemetry.log   │
+  │                                                  │             │
+  │  Browser ←──HTTP──← httpd:8080 ←──CGI──← tail -10 log        │
+  │  (Host)                                                        │
+  └────────────────────────────────────────────────────────────────┘
+
+  Akış detayı:
+    1. sensor_reader 100 Hz'de sensör verisi üretir
+    2. Veri POSIX Shared Memory üzerinden logger_app'e aktarılır
+    3. logger_app her örneği /tmp/telemetry.log dosyasına CSV yazar
+    4. Tarayıcı her 1 saniyede /cgi-bin/telemetry.cgi'ye HTTP GET atar
+    5. CGI betiği "tail -10 /tmp/telemetry.log" çalıştırır
+    6. Son 10 satır plain text olarak tarayıcıya döner
+    7. JavaScript bu CSV satırlarını parse edip dashboard'u günceller
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+3. CGI (COMMON GATEWAY INTERFACE) NASIL ÇALIŞIR?
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+CGI, web sunucusunun bir HTTP isteği geldiğinde harici bir program veya
+script çalıştırmasını sağlayan standart bir arayüzdür (RFC 3875).
+
+  İstek akışı:
+
+    Tarayıcı:  GET /cgi-bin/telemetry.cgi HTTP/1.1
+                          │
+                          ▼
+    httpd:     /cgi-bin/ dizinini tanır → dosyayı çalıştırır
+                          │
+                          ▼
+    telemetry.cgi:  #!/bin/sh
+                    echo "Content-Type: text/plain"
+                    echo ""
+                    tail -10 /tmp/telemetry.log
+                          │
+                          ▼
+    httpd:     Script'in stdout çıktısını HTTP yanıtı olarak döndürür
+                          │
+                          ▼
+    Tarayıcı:  CSV verisini alır, JavaScript ile parse eder
+
+  Önemli kurallar:
+    - CGI script'i çalıştırılabilir olmalı (chmod +x)
+    - İlk satır shebang olmalı (#!/bin/sh)
+    - Önce HTTP header yazılmalı (Content-Type: ...)
+    - Boş satır, header ile body arasındaki ayırıcıdır
+    - Script'in stdout'u = HTTP response body
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+4. QEMU PORT FORWARDING MEKANİZMASI
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+QEMU varsayılan olarak sanal makinenin ağını dış dünyaya kapatır.
+Web dashboard'a host bilgisayardan erişmek için port yönlendirme
+(port forwarding) kullanılır.
+
+  QEMU parametreleri:
+
+    -netdev user,id=net0,hostfwd=tcp::8080-:8080
+    -device virtio-net-pci,netdev=net0
+
+  Bu komutlar şunları yapar:
+    1. QEMU içinde sanal bir ağ kartı (VirtIO NIC) oluşturur
+    2. User-mode networking (SLIRP) kullanır — TAP/bridge gerektirmez
+    3. Host'un 8080 portunu QEMU'nun 8080 portuna yönlendirir
+
+  Sonuç:
+    Host tarayıcıda http://localhost:8080 → QEMU içindeki httpd:8080
+
+  Sanal makine içinde ağ yapılandırması:
+    ifconfig eth0 up          → Ağ arayüzünü etkinleştirir
+    udhcpc -i eth0 -q         → QEMU'nun dahili DHCP'sinden IP alır
+    (Tipik IP: 10.0.2.15, Gateway: 10.0.2.2)
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+5. DASHBOARD TASARIMI — TEKNİK DETAYLAR
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Dashboard tek bir index.html dosyasından oluşur. Harici kütüphane
+kullanılmaz (React, Vue, Chart.js yok). Saf HTML + CSS + Vanilla JS.
+
+  Neden saf HTML/JS?
+    - BusyBox httpd sadece statik dosya sunar, build tool çalıştıramaz
+    - Gömülü sistemde NPM/Node.js yoktur
+    - Tek dosya = kolay deploy, kolay debug
+
+  Dashboard bileşenleri:
+
+    ┌──────────────────────────────────────────────────────┐
+    │  HEADER: "Telemetry Dashboard"        [LIVE/OFFLINE] │
+    ├──────────────────────────────────────────────────────┤
+    │                                                      │
+    │  ┌──────────┐ ┌──────────┐ ┌──────────┐            │
+    │  │Temperature│ │ Pressure │ │ Humidity │            │
+    │  │   2456    │ │  102345  │ │   4892   │            │
+    │  │  ■■■■■□□  │ │ ■■■■□□□  │ │ ■■■□□□□  │            │
+    │  └──────────┘ └──────────┘ └──────────┘            │
+    │                                                      │
+    │  ┌──────────┐ ┌──────────┐ ┌──────────┐            │
+    │  │ Accel X  │ │ Accel Y  │ │ Accel Z  │            │
+    │  │   -234   │ │   567    │ │   9543   │            │
+    │  │  ■■□□□□□  │ │ ■■■■■□□  │ │ ■■■□□□□  │            │
+    │  └──────────┘ └──────────┘ └──────────┘            │
+    │                                                      │
+    │  LIVE DATA STREAM                                    │
+    │  ┌──────────────────────────────────────────────┐   │
+    │  │ [SEQ:000845] T:2456 P:102345 H:4892 ...     │   │
+    │  │ [SEQ:000846] T:2387 P:101987 H:5012 ...     │   │
+    │  │ [SEQ:000847] T:2501 P:103456 H:4723 ...     │   │
+    │  └──────────────────────────────────────────────┘   │
+    └──────────────────────────────────────────────────────┘
+
+  JavaScript polling mekanizması:
+    setInterval(fetchData, 1000);   → Her 1 saniyede CGI'ya istek at
+    fetch('/cgi-bin/telemetry.cgi') → HTTP GET
+    .then(r => r.text())            → Plain text olarak al
+    .then(parse + update DOM)       → CSV parse et, kartları güncelle
+
+  Not: WebSocket kullanılmadı çünkü BusyBox httpd WebSocket desteklemez.
+  Polling (her 1 saniye GET isteği) bu kullanım durumu için yeterlidir.
+  100 Hz veri üretimi olmasına rağmen dashboard saniyede 1 güncelleme
+  yapar — bu bilinçli bir tasarım kararıdır (insan gözü zaten 100 Hz'i
+  ayırt edemez).
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+6. KULLANIM KILAVUZU
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  a) Otomatik başlatma (run.sh ile):
+     bash run.sh
+     → QEMU boot olur, httpd otomatik başlar
+     → Tarayıcıda http://localhost:8080 açın
+
+  b) Manuel başlatma (QEMU içinden):
+     httpd -p 8080 -h /var/www
+     → Tarayıcıda http://localhost:8080 açın
+
+  c) Doğrulama (QEMU içinden):
+     wget -qO- http://localhost:8080/cgi-bin/telemetry.cgi
+     → Son 10 telemetri satırını gösterir
+
+  d) Dashboard'un görüntülenmesi:
+     Host bilgisayarda herhangi bir web tarayıcısı açın:
+     http://localhost:8080
+
+     Beklenen davranış:
+     - 6 kart anlık sensör değerlerini gösterir
+     - Her kartta renkli ilerleme çubuğu değere göre dolar
+     - Alt bölümde canlı veri akışı log olarak akar
+     - Sağ üstte "LIVE" etiketi yeşil yanar
+     - Bağlantı koparsa "OFFLINE" kırmızıya döner
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+7. GÖMÜLÜ SİSTEMLERDE WEB SUNUCULARI KARŞILAŞTIRMASI
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  ┌──────────────────┬────────────┬──────────┬─────────────────────┐
+  │ Sunucu           │ Boyut      │ CGI      │ Kullanım Alanı      │
+  ├──────────────────┼────────────┼──────────┼─────────────────────┤
+  │ BusyBox httpd    │ ~20 KB     │ Evet     │ Ultra-hafif, BusyBox│
+  │ lighttpd         │ ~400 KB    │ Evet     │ Orta ölçekli gömülü │
+  │ uhttpd (OpenWrt) │ ~30 KB     │ Evet     │ Router cihazları    │
+  │ Nginx            │ ~1.5 MB    │ FastCGI  │ Yüksek trafik       │
+  │ Apache           │ ~5+ MB     │ Evet     │ Sunucu ortamları    │
+  │ GoAhead          │ ~200 KB    │ Evet     │ IoT cihazları       │
+  └──────────────────┴────────────┴──────────┴─────────────────────┘
+
+  Bu projede BusyBox httpd seçilmesinin nedenleri:
+  - Zaten BusyBox RootFS kullanıyoruz, ek paket yok
+  - CGI ile dinamik veri sunumu yapılabiliyor
+  - 20 KB boyut gömülü sistem için ideal
+  - Ek bağımlılık sıfır
+
+
+================================================================================
+  SON
+================================================================================

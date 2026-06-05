@@ -85,6 +85,7 @@ boot_qemu() {
     echo "  QEMU AArch64 Boot"
     echo "  Kernel: linux-${KERNEL_VERSION}"
     echo "  RootFS: rootfs.ext4 (ext4, ${DISK_SIZE_MB}MB)"
+    echo "  Web:    http://localhost:8080"
     echo "  Exit:   Ctrl-A then X"
     echo "========================================"
     echo ""
@@ -96,6 +97,8 @@ boot_qemu() {
         -nographic \
         -kernel "${KERNEL_IMAGE}" \
         -drive file="${DISK_IMAGE}",format=raw,if=virtio \
+        -netdev user,id=net0,hostfwd=tcp::8080-:8080 \
+        -device virtio-net-pci,netdev=net0 \
         -append "root=/dev/vda rw console=ttyAMA0 earlycon=pl011,0x09000000 panic=5"
 }
 
@@ -113,12 +116,14 @@ boot_qemu_docker() {
     echo "  QEMU AArch64 Boot (Docker)"
     echo "  Kernel: linux-${KERNEL_VERSION}"
     echo "  RootFS: rootfs.ext4 (ext4, ${DISK_SIZE_MB}MB)"
+    echo "  Web:    http://localhost:8080"
     echo "  Exit:   Ctrl-A then X"
     echo "========================================"
     echo ""
 
     docker run --rm -it \
         -v "${SCRIPT_DIR}:/workspace" \
+        -p 8080:8080 \
         qemu-aarch64-env \
         qemu-system-aarch64 \
             -machine virt \
@@ -127,6 +132,8 @@ boot_qemu_docker() {
             -nographic \
             -kernel /workspace/Image \
             -drive file=/workspace/rootfs.ext4,format=raw,if=virtio \
+            -netdev user,id=net0,hostfwd=tcp::8080-:8080 \
+            -device virtio-net-pci,netdev=net0 \
             -append "root=/dev/vda rw console=ttyAMA0 earlycon=pl011,0x09000000 panic=5"
 }
 

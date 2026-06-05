@@ -52,6 +52,11 @@ hostname aarch64-embedded
 echo "aarch64-embedded" > /etc/hostname
 
 echo "    TELEMETRY SYSTEM AUTO-START       "
+
+echo "[*] Configuring network..."
+ifconfig eth0 up 2>/dev/null
+udhcpc -i eth0 -s /usr/share/udhcpc/default.script -q 2>/dev/null &
+
 echo "[*] Loading telemetry_sensor.ko..."
 insmod /lib/modules/telemetry_sensor.ko
 
@@ -61,6 +66,9 @@ sleep 1
 
 echo "[*] Starting logger_app in background..."
 logger_app &
+
+echo "[*] Starting httpd web server on port 8080..."
+httpd -p 8080 -h /var/www
 
 RCS_EOF
     chmod +x "${ROOTFS_DIR}/etc/init.d/rcS"
@@ -150,6 +158,19 @@ install_ipc() {
     fi
 }
 
+install_web() {
+    WEB_DIR="${SCRIPT_DIR}/../web"
+    if [ -d "${WEB_DIR}" ]; then
+        mkdir -p "${ROOTFS_DIR}/var/www/cgi-bin"
+        cp "${WEB_DIR}/index.html" "${ROOTFS_DIR}/var/www/"
+        cp "${WEB_DIR}/cgi-bin/telemetry.cgi" "${ROOTFS_DIR}/var/www/cgi-bin/"
+        chmod +x "${ROOTFS_DIR}/var/www/cgi-bin/telemetry.cgi"
+        ok "Web dashboard installed at /var/www/"
+    else
+        warn "Web directory not found, skipping dashboard"
+    fi
+}
+
 install_verify() {
     cat > "${ROOTFS_DIR}/usr/bin/verify" << 'VERIFY_EOF'
 #!/bin/sh
@@ -216,6 +237,7 @@ main() {
     create_device_nodes
     install_filesync
     install_ipc
+    install_web
     install_verify
     create_initramfs
 }

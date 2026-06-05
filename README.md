@@ -92,3 +92,24 @@ dmesg | tail               # Check kernel messages
 ```
 
 To exit QEMU at any time: Press `Ctrl + A`, release, then press `X`.
+
+---
+
+## ⭐ Bonus Features
+
+### Web-Based Telemetry Dashboard
+Once QEMU boots, open your host browser and navigate to:
+```
+http://localhost:8080
+```
+A real-time dashboard will display live sensor data (Temperature, Pressure, Humidity, Accelerometer XYZ) with animated progress bars, streamed via BusyBox `httpd` and CGI.
+
+### Docker + QEMU CI/CD
+Every push to `main` triggers a GitHub Actions pipeline that:
+1. Builds the Docker environment
+2. Cross-compiles all binaries
+3. Generates the BusyBox RootFS
+4. Boots QEMU for 20 seconds and verifies the system boots successfully (Smoke Test)
+
+### Kernel Module (LKM)
+A custom I2C character device driver (`telemetry_sensor.ko`) is included, demonstrating Linux Loadable Kernel Module development with `file_operations`, `class_create`, and `copy_to_user`.
