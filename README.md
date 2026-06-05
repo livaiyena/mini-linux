@@ -16,7 +16,18 @@ Everything is containerized via Docker to ensure it compiles reliably on any hos
 
 ## 🚀 Quick Start Guide (For Evaluators/Teachers)
 
-Follow these exact steps to compile the source code, generate the OS images, and run the simulation. **No native ARM toolchains are required; Docker handles everything.**
+**No native ARM toolchains are required; Docker handles everything.**
+
+### One-Command Run (Recommended)
+Clone the repo and run a single command to compile everything from scratch and boot the simulation:
+```bash
+bash run.sh
+```
+This will automatically: build the Docker environment → cross-compile all C code → generate the RootFS → compile the Linux Kernel → create the disk image → boot QEMU.
+
+---
+
+### Manual Steps (If Preferred)
 
 ### Step 1: Prepare the Build Environment
 Build the Docker image containing the cross-compilation toolchains:
