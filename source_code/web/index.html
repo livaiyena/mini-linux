@@ -269,8 +269,11 @@ function fetchData() {
         const div = document.createElement('div');
         div.className = 'entry';
         const parts = line.split(',');
+        const pTemp = (parseInt(parts[1]) / 100).toFixed(2);
+        const pPres = (parseInt(parts[2]) / 100).toFixed(1);
+        const pHum  = (parseInt(parts[3]) / 100).toFixed(2);
         div.innerHTML = '<span class="ts">[SEQ:' + parts[0].padStart(6,'0') + ']</span> '
-          + 'T:' + parts[1] + ' P:' + parts[2] + ' H:' + parts[3]
+          + 'T:' + pTemp + ' P:' + pPres + ' H:' + pHum
           + ' A(' + parts[4] + ',' + parts[5] + ',' + parts[6] + ')';
         box.appendChild(div);
       });
