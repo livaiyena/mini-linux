@@ -54,18 +54,18 @@ echo "aarch64-embedded" > /etc/hostname
 echo "    TELEMETRY SYSTEM AUTO-START       "
 
 echo "[*] Configuring network..."
-ifconfig eth0 up 2>/dev/null
-udhcpc -i eth0 -s /usr/share/udhcpc/default.script -q 2>/dev/null &
+ifconfig eth0 10.0.2.15 netmask 255.255.255.0 up 2>/dev/null
+route add default gw 10.0.2.2 2>/dev/null
 
 echo "[*] Loading telemetry_sensor.ko..."
 insmod /lib/modules/telemetry_sensor.ko
 
 echo "[*] Starting sensor_reader in background..."
-sensor_reader &
+sensor_reader > /dev/null 2>&1 &
 sleep 1
 
 echo "[*] Starting logger_app in background..."
-logger_app &
+logger_app > /dev/null 2>&1 &
 
 echo "[*] Starting httpd web server on port 8080..."
 httpd -p 8080 -h /var/www
