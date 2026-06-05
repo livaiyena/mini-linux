@@ -24,3 +24,4 @@ qemu/Image
 qemu/rootfs.ext4
 qemu/linux-*/
 qemu/*.tar.xz
+.env
