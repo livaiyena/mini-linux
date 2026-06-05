@@ -159,7 +159,7 @@ install_ipc() {
 }
 
 install_web() {
-    WEB_DIR="${SCRIPT_DIR}/../web"
+    WEB_DIR="${SCRIPT_DIR}/../source_code/web"
     if [ -d "${WEB_DIR}" ]; then
         mkdir -p "${ROOTFS_DIR}/var/www/cgi-bin"
         cp "${WEB_DIR}/index.html" "${ROOTFS_DIR}/var/www/"
